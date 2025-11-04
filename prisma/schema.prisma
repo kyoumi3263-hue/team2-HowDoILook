@@ -4,11 +4,122 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// 이 스키마는 PostgreSQL을 기준으로 작성되었습니다. (tags의 String[] 등)
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_URL")
+}
+
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+// --- Enum 정의 ---
+
+// 스타일 아이템의 카테고리
+enum StyleCategory {
+  TOP
+  BOTTOMS
+  OUTERS
+  ONEPIECE
+  SHOES
+  BAGS
+  ACCESSORIES
+}
+
+// --- 모델 정의 ---
+
+// 1. 스타일 (메인 게시물)
+model Style {
+  id          String   @id @default(cuid())
+  title       String // 제목
+  nickname    String // 닉네임
+  password    String // 비밀번호 (API에서는 반드시 해시(hash) 처리)
+  description String? // 스타일 설명
+  tags        String[] @default([]) // 태그 (String 배열)
+
+  // -- 정렬 및 랭킹용 필드 --
+  viewCount     Int @default(0) // 조회수
+  curationCount Int @default(0) // 큐레이팅 수 (정렬용)
+
+  // 큐레이팅 점수 평균 (랭킹용)
+  avgTrendy        Float @default(0)
+  avgPersonality   Float @default(0)
+  avgPracticality  Float @default(0)
+  avgCostEffective Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- 관계 ---
+  images    Image[] // 이 스타일에 속한 여러 장의 이미지
+  items     StyleItem[] // 이 스타일에 속한 여러 개의 구성 아이템
+  curations Curation[] // 이 스타일에 달린 여러 개의 큐레이팅
+}
+
+// 2. 이미지 (스타일에 여러 장 포함됨)
+model Image {
+  id  String @id @default(cuid())
+  url String // S3, Cloudinary 등에 업로드된 실제 이미지 URL
+
+  // 'Style'과의 N:1 관계
+  styleId String
+  style   Style  @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+}
+
+// 3. 스타일 구성 아이템 (상의, 하의 등)
+model StyleItem {
+  id String @id @default(cuid())
+
+  category  StyleCategory // 아이템 카테고리 (Enum)
+  itemName  String // 의상명
+  brandName String // 브랜드명
+  price     Int? // 가격 (선택 사항)
+
+  // 'Style'과의 N:1 관계
+  styleId String
+  style   Style  @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+}
+
+// 4. 큐레이팅 (스타일에 대한 평가)
+model Curation {
+  id       String @id @default(cuid())
+  nickname String
+  password String // 비밀번호 (해시 처리)
+  comment  String // 한줄 큐레이팅
+
+  // 4가지 평가 점수
+  trendyScore        Int
+  personalityScore   Int
+  practicalityScore  Int
+  costEffectiveScore Int
+
+  createdAt DateTime @default(now())
+
+  // 'Style'과의 N:1 관계
+  styleId String
+  style   Style  @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  // 'Reply'와의 1:1 관계
+  reply Reply?
+
+  @@index([styleId])
+}
+
+// 5. 답글 (큐레이팅에 대한 스타일 작성자의 답글)
+model Reply {
+  id      String @id @default(cuid())
+  content String // 답글 내용
+
+  createdAt DateTime @default(now())
+
+  // 'Curation'과의 1:1 관계
+  // @unique를 통해 하나의 Curation에 하나의 Reply만 연결되도록 보장
+  curationId String   @unique
+  curation   Curation @relation(fields: [curationId], references: [id], onDelete: Cascade)
 }

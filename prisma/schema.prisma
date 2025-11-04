@@ -4,11 +4,79 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-generator client {
-  provider = "prisma-client-js"
+// 이 스키마는 PostgreSQL을 기준으로 작성되었습니다. (tags의 String[] 등)
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_URL")
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+enum Category {
+  Top
+  Bottom
+  Outer
+  Onepiece
+  Shoes
+  Bag
+  Accessory
+}
+
+model Style {
+  id            Int        @id @default(autoincrement())
+  name          String
+  nickname      String
+  description   String
+  password      String
+  createdAt     DateTime   @default(now())
+  viewCount     Int
+  curatingCount Int
+  item          Item[]
+  tag           Tag[]
+  curating      Curating[]
+  image         Image[]
+}
+
+model Item {
+  id        Int      @id @default(autoincrement())
+  name      String
+  brandName String
+  price     Float
+  type      Category
+  style     Style    @relation(fields: [styleId], references: [id])
+  styleId   Int
+}
+
+model Tag {
+  id      Int    @id @default(autoincrement())
+  tag     String
+  style   Style? @relation(fields: [styleId], references: [id])
+  styleId Int?
+}
+
+model Image {
+  id      Int    @id @default(autoincrement())
+  url     String
+  style   Style  @relation(fields: [styleId], references: [id])
+  styleId Int
+}
+
+model Curating {
+  id            Int       @id @default(autoincrement())
+  trendy        Int
+  individuality Int
+  practicality  Int
+  valueForMoney Int
+  description   String
+  nickname      String
+  password      String
+  style         Style?    @relation(fields: [styleId], references: [id])
+  styleId       Int?
+  comment       Comment[]
+}
+
+model Comment {
+  id         Int       @id @default(autoincrement())
+  content    String
+  curating   Curating? @relation(fields: [curatingId], references: [id])
+  curatingId Int?      @unique
 }
